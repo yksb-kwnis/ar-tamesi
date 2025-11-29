@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
+
+    <script>
+        // タップ時の動作を定義するカスタムコンポーネント
+        AFRAME.registerComponent('click-handler', {
+            init: function () {
+                const el = this.el; // このコンポーネントがついている3Dモデル
+                let isPlayingAction = false;
+
+                // クリック（タップ）された時のイベントリスナー
+                el.addEventListener('click', function () {
+                    if (isPlayingAction) return; // アクション中は連打防止
+
+                    isPlayingAction = true;
+                    // アニメーションを「Action」に切り替え（1回だけ再生して止める設定）
+                    el.setAttribute('animation-mixer', {clip: 'Big', loop: 'once', clampWhenFinished: true});
+                    
+                    // アニメーションが終わった頃を見計らってIdleに戻す（例: 2秒後）
+                    // ※厳密にやるなら animation-finished イベントを監視しますが、簡易的にsetTimeoutで実装
+                    setTimeout(() => {
+                         // アニメーションを「Idle」に戻す（ループ再生）
+                        el.setAttribute('animation-mixer', {clip: 'Small', loop: 'repeat'});
+                        isPlayingAction = false;
+                    }, 2000); // 2000ミリ秒 = 2秒後に戻る
+                });
+            }
+        });
+    </script>
+</head>
+<body>
+    <a-scene 
+        mindar-image="imageTargetSrc: ./targets.mind;" 
+        color-space="sRGB" 
+        renderer="colorManagement: true, physicallyCorrectLights" 
+        vr-mode-ui="enabled: false" 
+        device-orientation-permission-ui="enabled: false"
+        raycaster="objects: .clickable"
+        cursor="fuse: false; rayOrigin: mouse;"
+    >
+
+        <a-assets>
+            <a-asset-item id="animatedModel" src="./untitled.glb"></a-asset-item>
+        </a-assets>
+
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+        <a-entity mindar-image-target="targetIndex: 0">
+            
+            <a-entity 
+                gltf-model="#animatedModel" 
+                rotation="0 0 0" 
+                position="0 0 0" 
+                scale="1 1 1"
+                class="clickable"
+                click-handler
+                animation-mixer="clip: Idle; loop: repeat;"
+            ></a-entity>
+            
+            </a-entity>
+    </a-scene>
+</body>
+</html>
