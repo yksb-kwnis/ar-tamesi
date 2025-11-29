@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
+
+    <script>
+        AFRAME.registerComponent('click-handler', {
+            init: function () {
+                const el = this.el;
+                // 操作したい3Dモデル（IDで指定）を取得
+                const model = document.querySelector("#my-model");
+
+                el.addEventListener('click', function () {
+                    // ★デバッグ用：タップされたら画面に文字を出す
+                    alert("タップされました！");
+
+                    // アニメーション切り替え処理
+                    model.setAttribute('animation-mixer', {
+                        clip: 'Big', 
+                        loop: 'once', 
+                        clampWhenFinished: true
+                    });
+                    
+                    setTimeout(() => {
+                        model.setAttribute('animation-mixer', {
+                            clip: 'Small', 
+                            loop: 'repeat'
+                        });
+                    }, 2000); 
+                });
+            }
+        });
+    </script>
+</head>
+<body>
+    <a-scene 
+        mindar-image="imageTargetSrc: ./targets.mind;" 
+        color-space="sRGB" 
+        renderer="colorManagement: true, physicallyCorrectLights" 
+        vr-mode-ui="enabled: false" 
+        device-orientation-permission-ui="enabled: false"
+        raycaster="objects: .clickable" 
+        cursor="fuse: false; rayOrigin: mouse;"
+    >
+
+        <a-assets>
+            <a-asset-item id="animatedModel" src="./untitled.glb"></a-asset-item>
+        </a-assets>
+
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+        <a-entity mindar-image-target="targetIndex: 0">
+            
+            <a-entity 
+                id="my-model"
+                gltf-model="#animatedModel" 
+                rotation="90 0 0" 
+                position="0 0 0" 
+                scale="0.1 0.1 0.1"
+                animation-mixer="clip: Small; loop: repeat;"
+            ></a-entity>
+
+            <a-box 
+                class="clickable" 
+                click-handler
+                position="0 0 0.2" 
+                scale="0.5 0.5 0.5"
+                material="opacity: 0.3; color: red; transparent: true;"
+            ></a-box>
+            </a-entity>
+    </a-scene>
+</body>
+</html>
