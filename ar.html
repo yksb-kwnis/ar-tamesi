@@ -5,38 +5,53 @@
     
     <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
     <script>var vConsole = new VConsole();</script>
-
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <script>
-        // ① 近づきすぎたら非表示にする機能
-        AFRAME.registerComponent('proximity-hider', {
+        // ★新機能：円柱状の進入禁止エリアを作る
+        AFRAME.registerComponent('cylinder-hider', {
             schema: {
-                distance: {default: 0.1} // ★修正：0.1 (10cm) 以内で非表示にする（以前は0.3で遠すぎた）
+                radius: {default: 0.5}, // 半径（モデルの元サイズに対する比率）
+                debug: {default: true}  // デバッグ用の赤い枠を出すかどうか
+            },
+            init: function() {
+                // デバッグ用に、進入禁止エリアを可視化する円柱を作る
+                if (this.data.debug) {
+                    var debugCyl = document.createElement('a-cylinder');
+                    debugCyl.setAttribute('radius', this.data.radius);
+                    debugCyl.setAttribute('height', 10); // 高さは無限っぽく適当に長く
+                    debugCyl.setAttribute('material', 'color: red; wireframe: true; opacity: 0.5;');
+                    // モデルの原点に配置
+                    this.el.appendChild(debugCyl);
+                }
             },
             tick: function () {
                 if (!this.el.parentEl.object3D.visible) return;
 
-                // ワールド座標（カメラからの絶対距離）を取得して計算
-                var worldPosition = new THREE.Vector3();
-                this.el.object3D.getWorldPosition(worldPosition);
-                const distance = worldPosition.length();
+                // 1. カメラの「ワールド座標」を取得
+                var cameraPosition = new THREE.Vector3();
+                this.el.sceneEl.camera.getWorldPosition(cameraPosition);
 
-                // ★デバッグ用：距離をログに出す（緑ボタンのLogで見れます）
-                console.log("Distance:", distance.toFixed(2));
+                // 2. カメラ座標を「モデルのローカル座標」に変換
+                // これにより、モデルが回転しても拡大しても、「モデルから見た位置」が取れる
+                var localPosition = this.el.object3D.worldToLocal(cameraPosition);
 
-                // 判定
-                this.el.object3D.visible = distance > this.data.distance;
+                // 3. XとZ（水平面）だけの距離を測る = 円柱判定
+                // (Y軸=高さ は無視する)
+                var distanceXZ = Math.sqrt(localPosition.x * localPosition.x + localPosition.z * localPosition.z);
+
+                // ログで確認（邪魔なら消してください）
+                // console.log("Cylinder Dist:", distanceXZ.toFixed(2));
+
+                // 4. 半径より内側に入ったら消す
+                this.el.object3D.visible = distanceXZ > this.data.radius;
             }
         });
 
-        // ② ピンチ操作で拡大縮小する機能
+        // ピンチ操作（そのまま維持）
         AFRAME.registerComponent('pinch-scaler', {
-            schema: {
-                min: {default: 0.0005}, // 最小サイズ
-                max: {default: 0.005}   // 最大サイズ
-            },
+            schema: { min: {default: 0.0005}, max: {default: 0.005} },
             init: function () {
                 this.startDistance = 0;
                 this.initialScale = {x: 1, y: 1, z: 1};
@@ -55,12 +70,9 @@
                     const currentDistance = this.getDistance(e.touches[0], e.touches[1]);
                     const scaleFactor = currentDistance / this.startDistance;
                     let newScale = this.initialScale.x * scaleFactor;
-
                     if (newScale < this.data.min) newScale = this.data.min;
                     if (newScale > this.data.max) newScale = this.data.max;
-
                     this.el.object3D.scale.set(newScale, newScale, newScale);
-                    console.log("Scale:", newScale);
                 }
             },
             getDistance: function (touch1, touch2) {
@@ -86,16 +98,14 @@
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         <a-entity mindar-image-target="targetIndex: 0">
-            
             <a-entity 
                 gltf-model="#avatarModel" 
                 rotation="90 0 0" 
                 position="0 0 0" 
                 scale="0.001 0.001 0.001"
-                proximity-hider="distance: 0.1"
+                cylinder-hider="radius: 150; debug: true" 
                 pinch-scaler="min: 0.0005; max: 0.005"
             ></a-entity>
-
         </a-entity>
     </a-scene>
 </body>
