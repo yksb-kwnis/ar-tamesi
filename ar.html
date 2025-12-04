@@ -6,70 +6,52 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <script>
-        // ① 近づきすぎたら非表示にするコンポーネント
+        // ① 近づきすぎたら非表示にする
         AFRAME.registerComponent('proximity-hider', {
             schema: {
-                distance: {default: 0.03} // 非表示にする距離（メートル）。0.3 = 30cm
+                distance: {default: 0.3} // 0.3メートル（30cm）
             },
             tick: function () {
-                // モデル（このコンポーネントがついている要素）のワールド座標を取得
-                const object3D = this.el.object3D;
-                // カメラ（原点）からの距離を計算
-                const distance = object3D.position.length();
-
-                // 親（マーカー）が見えている時だけ処理
+                if (!this.el.object3D.visible && !this.el.parentEl.object3D.visible) return;
+                const distance = this.el.object3D.position.length();
+                // 親（マーカー）が見えている時だけ判定
                 if (this.el.parentEl.object3D.visible) {
-                    // 距離が設定値より近ければ非表示、遠ければ表示
-                    // visibleプロパティを書き換える
-                    object3D.visible = distance > this.data.distance;
+                    this.el.object3D.visible = distance > this.data.distance;
                 }
             }
         });
 
-        // ② 画面どこでもピンチ操作で拡大縮小するコンポーネント
+        // ② ピンチ操作で拡大縮小（基準サイズ 0.001 に合わせた設定）
         AFRAME.registerComponent('pinch-scaler', {
             schema: {
-                min: {default: 0.0005}, // 最小スケール
-                max: {default: 0.005}   // 最大スケール
+                min: {default: 0.0005}, // 最小：今の半分のサイズ
+                max: {default: 0.005}   // 最大：今の5倍のサイズ
             },
             init: function () {
                 this.startDistance = 0;
                 this.initialScale = {x: 1, y: 1, z: 1};
                 this.sceneEl = this.el.sceneEl;
-
-                // 画面全体（シーン）に対するタッチイベントを監視
                 this.sceneEl.canvas.addEventListener('touchstart', this.onTouchStart.bind(this));
                 this.sceneEl.canvas.addEventListener('touchmove', this.onTouchMove.bind(this));
             },
             onTouchStart: function (e) {
-                // 指が2本ある場合のみ処理開始
                 if (e.touches.length === 2) {
-                    // 2本指の距離を計算して記憶
                     this.startDistance = this.getDistance(e.touches[0], e.touches[1]);
-                    // 現在のモデルのスケールを記憶
                     this.initialScale = {...this.el.object3D.scale};
                 }
             },
             onTouchMove: function (e) {
-                // 指が2本あり、かつ開始距離が記録されている場合
                 if (e.touches.length === 2 && this.startDistance > 0) {
                     const currentDistance = this.getDistance(e.touches[0], e.touches[1]);
-                    
-                    // 拡大率を計算 (今の距離 / 最初の距離)
                     const scaleFactor = currentDistance / this.startDistance;
-
-                    // 新しいスケールを計算
                     let newScale = this.initialScale.x * scaleFactor;
 
-                    // 最小・最大サイズの制限
                     if (newScale < this.data.min) newScale = this.data.min;
                     if (newScale > this.data.max) newScale = this.data.max;
 
-                    // モデルに適用
                     this.el.object3D.scale.set(newScale, newScale, newScale);
                 }
             },
-            // 2点間の距離を測る計算式
             getDistance: function (touch1, touch2) {
                 const dx = touch1.pageX - touch2.pageX;
                 const dy = touch1.pageY - touch2.pageY;
@@ -80,7 +62,7 @@
 </head>
 <body>
     <a-scene 
-        mindar-image="imageTargetSrc: ./targetsMeishi.mind; filterMinCF: 0.0001; filterBeta: 0.007;" 
+        mindar-image="imageTargetSrc: ./targetsMeishi.mind; filterMinCF: 0.0003; filterBeta: 0.007;" 
         color-space="sRGB" 
         renderer="colorManagement: true, physicallyCorrectLights" 
         vr-mode-ui="enabled: false" 
@@ -93,18 +75,15 @@
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         <a-entity mindar-image-target="targetIndex: 0">
-            
             <a-entity 
                 gltf-model="#avatarModel" 
                 rotation="90 0 0" 
                 position="0 0 0" 
                 scale="0.001 0.001 0.001"
-                proximity-hider="distance: 0.03"
+                proximity-hider="distance: 0.3"
                 pinch-scaler="min: 0.0005; max: 0.005"
             ></a-entity>
-
         </a-entity>
     </a-scene>
 </body>
 </html>
-
