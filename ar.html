@@ -96,8 +96,29 @@
             ></a-entity>
         </a-entity>
     </a-scene>
+    <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const scene = document.querySelector("a-scene");
+    
+      scene.addEventListener("loaded", () => {
+        const mindarSystem = scene.systems["mindar-image"];
+    
+        // ページ非アクティブでカメラ停止
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) {
+            console.log("ページ非アクティブ → カメラ停止");
+            mindarSystem.stop();  // カメラ OFF
+          } else {
+            console.log("ページ復帰 → カメラ再開");
+            mindarSystem.start(); // カメラ ON
+          }
+        });
+      });
+    });
+    </script>
 </body>
 <!-- 大石泉すき -->
 </html>
+
 
 
