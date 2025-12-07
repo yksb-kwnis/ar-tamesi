@@ -3,53 +3,35 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     
-    <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
-    <script>var vConsole = new VConsole();</script>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <script>
-        // ★新機能：円柱状の進入禁止エリアを作る
         AFRAME.registerComponent('cylinder-hider', {
             schema: {
-                radius: {default: 0.5}, // 半径（モデルの元サイズに対する比率）
-                debug: {default: true}  // デバッグ用の赤い枠を出すかどうか
+                radius: {default: 0.7}, 
+                debug: {default: false}
             },
             init: function() {
-                // デバッグ用に、進入禁止エリアを可視化する円柱を作る
                 if (this.data.debug) {
                     var debugCyl = document.createElement('a-cylinder');
                     debugCyl.setAttribute('radius', this.data.radius);
-                    debugCyl.setAttribute('height', 10); // 高さは無限っぽく適当に長く
+                    debugCyl.setAttribute('height', 10); 
                     debugCyl.setAttribute('material', 'color: red; wireframe: true; opacity: 0.5;');
-                    // モデルの原点に配置
                     this.el.appendChild(debugCyl);
                 }
             },
             tick: function () {
                 if (!this.el.parentEl.object3D.visible) return;
-
-                // 1. カメラの「ワールド座標」を取得
                 var cameraPosition = new THREE.Vector3();
                 this.el.sceneEl.camera.getWorldPosition(cameraPosition);
-
-                // 2. カメラ座標を「モデルのローカル座標」に変換
-                // これにより、モデルが回転しても拡大しても、「モデルから見た位置」が取れる
                 var localPosition = this.el.object3D.worldToLocal(cameraPosition);
-
-                // 3. XとZ（水平面）だけの距離を測る = 円柱判定
-                // (Y軸=高さ は無視する)
                 var distanceXZ = Math.sqrt(localPosition.x * localPosition.x + localPosition.z * localPosition.z);
-
-                // ログで確認（邪魔なら消してください）
-                // console.log("Cylinder Dist:", distanceXZ.toFixed(2));
-
-                // 4. 半径より内側に入ったら消す
                 this.el.object3D.visible = distanceXZ > this.data.radius;
             }
         });
 
-        // ピンチ操作（そのまま維持）
+        // ピンチ操作
         AFRAME.registerComponent('pinch-scaler', {
             schema: { min: {default: 0.0005}, max: {default: 0.005} },
             init: function () {
@@ -103,19 +85,11 @@
                 rotation="90 0 0" 
                 position="0 0 0" 
                 scale="0.001 0.001 0.001"
-                cylinder-hider="radius: 150; debug: true" 
+                cylinder-hider="radius: 150; debug: false" 
                 pinch-scaler="min: 0.0005; max: 0.005"
             ></a-entity>
         </a-entity>
     </a-scene>
 </body>
+<!-- 大石泉すき -->
 </html>
-
-
-
-
-
-
-
-
-
