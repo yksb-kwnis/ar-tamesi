@@ -5,43 +5,50 @@
     <title>WebAR Business Card</title>
 
     <style>
-        /* MindARのデフォルトロード画面などを非表示にする場合 */
+        /* MindARのVRボタンを非表示 */
         .a-enter-vr {
             display: none !important;
         }
 
-        /* 案内UIのスタイル */
+        /* 案内UIのコンテナ */
         #guide-overlay {
             position: fixed;
-            top: 0;
             left: 0;
             width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.6); /* 背景を少し暗くする */
+            bottom: 15%; /* 真ん中より少し下（下から15%の位置） */
+            
+            /* 全体背景（暗転）は削除し、透明に */
+            background: transparent; 
+            
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 999;
-            pointer-events: none; /* UI越しにタップ操作などを通すため */
+            pointer-events: none; /* タップ操作を透過 */
             transition: opacity 0.3s;
         }
 
+        /* 案内テキストのデザイン */
         .guide-text {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 15px 25px;
-            border-radius: 30px;
+            /* 文字が読みやすいように、文字自体の背景だけ薄く白を入れる */
+            background: rgba(255, 255, 255, 0.7); 
+            padding: 10px 20px;
+            border-radius: 20px;
+            
             font-family: sans-serif;
             font-weight: bold;
-            font-size: 18px;
+            font-size: 16px;
             color: #333;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             text-align: center;
+            
+            /* 軽い影をつけて視認性を確保 */
+            text-shadow: 0 1px 1px rgba(255,255,255,0.8);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
         /* 非表示用クラス */
         .hidden {
             opacity: 0;
-            pointer-events: none;
         }
     </style>
     
@@ -50,50 +57,40 @@
 
     <script>
         // ------------------------------------------------
-        // 楕円形に隠すコンポーネント (elliptical-hider)
+        // 楕円形に隠すコンポーネント
         // ------------------------------------------------
         AFRAME.registerComponent('elliptical-hider', {
             schema: {
-                radiusX: {default: 0.7}, // 横方向の半径
-                radiusZ: {default: 0.4}, // 縦方向の半径
+                radiusX: {default: 0.7}, 
+                radiusZ: {default: 0.4}, 
                 debug: {default: false}
             },
             init: function() {
-                // デバッグ用表示（赤いワイヤーフレーム）
                 if (this.data.debug) {
                     var debugCyl = document.createElement('a-cylinder');
-                    // 基本の半径をXに合わせ、Z方向はスケールで楕円にする
                     debugCyl.setAttribute('radius', this.data.radiusX);
                     debugCyl.setAttribute('height', 10);
-                    
-                    // Z方向の縮尺率を計算 (radiusZ / radiusX)
                     var scaleZ = this.data.radiusZ / this.data.radiusX;
                     debugCyl.setAttribute('scale', `1 1 ${scaleZ}`);
-
                     debugCyl.setAttribute('material', 'color: red; wireframe: true; opacity: 0.5;');
                     this.el.appendChild(debugCyl);
                 }
             },
             tick: function () {
                 if (!this.el.parentEl.object3D.visible) return;
-
                 var cameraPosition = new THREE.Vector3();
                 this.el.sceneEl.camera.getWorldPosition(cameraPosition);
                 var localPosition = this.el.object3D.worldToLocal(cameraPosition);
-
-                // 楕円の方程式: (x^2 / a^2) + (z^2 / b^2) > 1 なら範囲外（表示）
-                // a = radiusX, b = radiusZ
                 
                 var xTerm = (localPosition.x * localPosition.x) / (this.data.radiusX * this.data.radiusX);
                 var zTerm = (localPosition.z * localPosition.z) / (this.data.radiusZ * this.data.radiusZ);
                 
-                // 1.0より大きければ楕円の外側なので表示する
                 this.el.object3D.visible = (xTerm + zTerm) > 1.0;
             }
         });
 
         // ------------------------------------------------
-        // ピンチ操作 (pinch-scaler) ※変更なし
+        // ピンチ操作
         // ------------------------------------------------
         AFRAME.registerComponent('pinch-scaler', {
             schema: { min: {default: 0.0005}, max: {default: 0.005} },
@@ -103,7 +100,6 @@
                 this.sceneEl = this.el.sceneEl;
                 this.onTouchStartBound = this.onTouchStart.bind(this);
                 this.onTouchMoveBound = this.onTouchMove.bind(this);
-                
                 this.sceneEl.canvas.addEventListener('touchstart', this.onTouchStartBound);
                 this.sceneEl.canvas.addEventListener('touchmove', this.onTouchMoveBound);
             },
@@ -143,7 +139,7 @@
     </div>
 
     <a-scene 
-        mindar-image="imageTargetSrc: ./targetsMeishi.mind; filterMinCF: 0.0003; filterBeta: 0.007;" 
+        mindar-image="imageTargetSrc: ./targetsMeishi.mind; filterMinCF: 0.0001; filterBeta: 0.007;" 
         color-space="sRGB" 
         renderer="colorManagement: true, physicallyCorrectLights" 
         vr-mode-ui="enabled: false" 
@@ -161,8 +157,8 @@
                 rotation="90 0 0" 
                 position="0 0 0" 
                 scale="0.001 0.001 0.001"
-                elliptical-hider="radiusX: 550; radiusZ: 250; debug: true" 
-                pinch-scaler="min: 0.0005; max: 0.005"
+                elliptical-hider="radiusX: 550; radiusZ: 250; debug: false" 
+                pinch-scaler="min: 0.00005; max: 0.005"
             ></a-entity>
         </a-entity>
 
@@ -172,8 +168,8 @@
                 rotation="90 0 0" 
                 position="0 0 0" 
                 scale="0.001 0.001 0.001"
-                elliptical-hider="radiusX: 650; radiusZ: 300; debug: true" 
-                pinch-scaler="min: 0.0005; max: 0.005"
+                elliptical-hider="radiusX: 550; radiusZ: 250; debug: false" 
+                pinch-scaler="min: 0.00005; max: 0.005"
             ></a-entity>
         </a-entity>
 
@@ -184,15 +180,15 @@
         const scene = document.querySelector("a-scene");
         const guideOverlay = document.getElementById("guide-overlay");
         
-        // 検出状態を管理する変数
         let visibleCount = 0;
 
+        // 表示切替関数
         const updateGuideVisibility = () => {
             if (visibleCount > 0) {
-                // 1つでも見つかっていればガイドを消す
+                // スキャン成功（ターゲットが見えている）時は消す
                 guideOverlay.classList.add("hidden");
             } else {
-                // 何も見つかっていないならガイドを出す
+                // スキャン中（ターゲットが見えていない）時は表示
                 guideOverlay.classList.remove("hidden");
             }
         };
@@ -201,22 +197,19 @@
             const mindarSystem = scene.systems["mindar-image"];
             const targets = document.querySelectorAll('.target-marker');
 
-            // 各ターゲットの検出イベントを設定
             targets.forEach(target => {
                 target.addEventListener("targetFound", () => {
-                    console.log("Target Found");
                     visibleCount++;
                     updateGuideVisibility();
                 });
                 target.addEventListener("targetLost", () => {
-                    console.log("Target Lost");
                     visibleCount--;
-                    if(visibleCount < 0) visibleCount = 0; // 念のため
+                    if(visibleCount < 0) visibleCount = 0;
                     updateGuideVisibility();
                 });
             });
 
-            // ページ非アクティブ制御
+            // ページ非表示時のカメラ停止制御
             document.addEventListener("visibilitychange", () => {
                 if (document.hidden) {
                     mindarSystem.stop(); 
@@ -230,4 +223,3 @@
 </body>
 <!-- 大石泉すき -->
 </html>
-
