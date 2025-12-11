@@ -2,50 +2,105 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WebAR Business Card</title>
 
     <style>
-      .a-enter-vr {
-        display: none !important;
-      }
+        /* MindARのデフォルトロード画面などを非表示にする場合 */
+        .a-enter-vr {
+            display: none !important;
+        }
+
+        /* 案内UIのスタイル */
+        #guide-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6); /* 背景を少し暗くする */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            pointer-events: none; /* UI越しにタップ操作などを通すため */
+            transition: opacity 0.3s;
+        }
+
+        .guide-text {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px 25px;
+            border-radius: 30px;
+            font-family: sans-serif;
+            font-weight: bold;
+            font-size: 18px;
+            color: #333;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        
+        /* 非表示用クラス */
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
     </style>
     
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <script>
-        AFRAME.registerComponent('cylinder-hider', {
+        // ------------------------------------------------
+        // 楕円形に隠すコンポーネント (elliptical-hider)
+        // ------------------------------------------------
+        AFRAME.registerComponent('elliptical-hider', {
             schema: {
-                radius: {default: 0.7}, 
+                radiusX: {default: 0.7}, // 横方向の半径
+                radiusZ: {default: 0.4}, // 縦方向の半径
                 debug: {default: false}
             },
             init: function() {
+                // デバッグ用表示（赤いワイヤーフレーム）
                 if (this.data.debug) {
                     var debugCyl = document.createElement('a-cylinder');
-                    debugCyl.setAttribute('radius', this.data.radius);
-                    debugCyl.setAttribute('height', 10); 
+                    // 基本の半径をXに合わせ、Z方向はスケールで楕円にする
+                    debugCyl.setAttribute('radius', this.data.radiusX);
+                    debugCyl.setAttribute('height', 10);
+                    
+                    // Z方向の縮尺率を計算 (radiusZ / radiusX)
+                    var scaleZ = this.data.radiusZ / this.data.radiusX;
+                    debugCyl.setAttribute('scale', `1 1 ${scaleZ}`);
+
                     debugCyl.setAttribute('material', 'color: red; wireframe: true; opacity: 0.5;');
                     this.el.appendChild(debugCyl);
                 }
             },
             tick: function () {
                 if (!this.el.parentEl.object3D.visible) return;
+
                 var cameraPosition = new THREE.Vector3();
                 this.el.sceneEl.camera.getWorldPosition(cameraPosition);
                 var localPosition = this.el.object3D.worldToLocal(cameraPosition);
-                var distanceXZ = Math.sqrt(localPosition.x * localPosition.x + localPosition.z * localPosition.z);
-                this.el.object3D.visible = distanceXZ > this.data.radius;
+
+                // 楕円の方程式: (x^2 / a^2) + (z^2 / b^2) > 1 なら範囲外（表示）
+                // a = radiusX, b = radiusZ
+                
+                var xTerm = (localPosition.x * localPosition.x) / (this.data.radiusX * this.data.radiusX);
+                var zTerm = (localPosition.z * localPosition.z) / (this.data.radiusZ * this.data.radiusZ);
+                
+                // 1.0より大きければ楕円の外側なので表示する
+                this.el.object3D.visible = (xTerm + zTerm) > 1.0;
             }
         });
 
-        // ピンチ操作
+        // ------------------------------------------------
+        // ピンチ操作 (pinch-scaler) ※変更なし
+        // ------------------------------------------------
         AFRAME.registerComponent('pinch-scaler', {
             schema: { min: {default: 0.0005}, max: {default: 0.005} },
             init: function () {
                 this.startDistance = 0;
                 this.initialScale = {x: 1, y: 1, z: 1};
                 this.sceneEl = this.el.sceneEl;
-                // イベントリスナーの重複登録を防ぐため、canvasに既に登録されていないか確認するのがベストですが、
-                // 簡易的にこのまま動作させます（動作に大きな支障はありません）
                 this.onTouchStartBound = this.onTouchStart.bind(this);
                 this.onTouchMoveBound = this.onTouchMove.bind(this);
                 
@@ -53,7 +108,6 @@
                 this.sceneEl.canvas.addEventListener('touchmove', this.onTouchMoveBound);
             },
             remove: function() {
-                // コンポーネントが削除されたときのクリーンアップ
                 this.sceneEl.canvas.removeEventListener('touchstart', this.onTouchStartBound);
                 this.sceneEl.canvas.removeEventListener('touchmove', this.onTouchMoveBound);
             },
@@ -82,6 +136,12 @@
     </script>
 </head>
 <body>
+    <div id="guide-overlay">
+        <div class="guide-text">
+            名刺を映してください
+        </div>
+    </div>
+
     <a-scene 
         mindar-image="imageTargetSrc: ./targetsMeishi.mind; filterMinCF: 0.0003; filterBeta: 0.007;" 
         color-space="sRGB" 
@@ -95,47 +155,76 @@
 
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-        <a-entity mindar-image-target="targetIndex: 0">
+        <a-entity mindar-image-target="targetIndex: 0" class="target-marker">
             <a-entity 
                 gltf-model="#avatarModel" 
                 rotation="90 0 0" 
                 position="0 0 0" 
                 scale="0.001 0.001 0.001"
-                cylinder-hider="radius: 250; debug: true" 
+                elliptical-hider="radiusX: 400; radiusZ: 200; debug: true" 
                 pinch-scaler="min: 0.0005; max: 0.005"
             ></a-entity>
         </a-entity>
 
-        <a-entity mindar-image-target="targetIndex: 1">
+        <a-entity mindar-image-target="targetIndex: 1" class="target-marker">
             <a-entity 
                 gltf-model="#avatarModel" 
                 rotation="90 0 0" 
                 position="0 0 0" 
                 scale="0.001 0.001 0.001"
-                cylinder-hider="radius: 150; debug: true" 
+                elliptical-hider="radiusX: 350; radiusZ: 150; debug: true" 
                 pinch-scaler="min: 0.0005; max: 0.005"
             ></a-entity>
         </a-entity>
 
     </a-scene>
+
     <script>
     document.addEventListener("DOMContentLoaded", () => {
-      const scene = document.querySelector("a-scene");
-     
-      scene.addEventListener("loaded", () => {
-        const mindarSystem = scene.systems["mindar-image"];
-     
-        // ページ非アクティブでカメラ停止
-        document.addEventListener("visibilitychange", () => {
-          if (document.hidden) {
-            console.log("ページ非アクティブ → カメラ停止");
-            mindarSystem.stop(); 
-          } else {
-            console.log("ページ復帰 → カメラ再開");
-            mindarSystem.start(); 
-          }
+        const scene = document.querySelector("a-scene");
+        const guideOverlay = document.getElementById("guide-overlay");
+        
+        // 検出状態を管理する変数
+        let visibleCount = 0;
+
+        const updateGuideVisibility = () => {
+            if (visibleCount > 0) {
+                // 1つでも見つかっていればガイドを消す
+                guideOverlay.classList.add("hidden");
+            } else {
+                // 何も見つかっていないならガイドを出す
+                guideOverlay.classList.remove("hidden");
+            }
+        };
+
+        scene.addEventListener("loaded", () => {
+            const mindarSystem = scene.systems["mindar-image"];
+            const targets = document.querySelectorAll('.target-marker');
+
+            // 各ターゲットの検出イベントを設定
+            targets.forEach(target => {
+                target.addEventListener("targetFound", () => {
+                    console.log("Target Found");
+                    visibleCount++;
+                    updateGuideVisibility();
+                });
+                target.addEventListener("targetLost", () => {
+                    console.log("Target Lost");
+                    visibleCount--;
+                    if(visibleCount < 0) visibleCount = 0; // 念のため
+                    updateGuideVisibility();
+                });
+            });
+
+            // ページ非アクティブ制御
+            document.addEventListener("visibilitychange", () => {
+                if (document.hidden) {
+                    mindarSystem.stop(); 
+                } else {
+                    mindarSystem.start(); 
+                }
+            });
         });
-      });
     });
     </script>
 </body>
